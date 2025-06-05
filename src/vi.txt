@@ -1,12 +1,11 @@
-
-So sánh giữa các phiên bản in (trên) và kỹ thuật số (dưới) của font Perpetua
-Phông chữ máy tính (hoặc phông chữ) được triển khai dưới dạng tệp dữ liệu kỹ thuật số có chứa một tập hợp các hình tượng, ký tự hoặc ký hiệu liên quan đến đồ họa như dingbats. Mặc dù thuật ngữ phông chữ đầu tiên đề cập đến một tập hợp các con chữ kim loại có thể di chuyển theo một kiểu và kích cỡ, kể từ những năm 1990, nó thường được dùng để chỉ một tập hợp các hình dạng kỹ thuật số theo một kiểu duy nhất, có thể mở rộng theo các kích cỡ khác nhau. Một họ phông chữ hoặc kiểu chữ đề cập đến bộ sưu tập các phông chữ liên quan qua các kiểu và kích cỡ.
-
 Có ba loại định dạng dữ liệu tệp phông chữ cơ bản của máy tính:
 
-Phông chữ bitmap bao gồm một ma trận các chấm hoặc pixel đại diện cho hình ảnh của mỗi glyph ở mỗi mặt và kích thước.
-Phông chữ vectơ (bao gồm và đôi khi đứng như một từ đồng nghĩa với phông chữ phác thảo) sử dụng các đường cong Bézier, hướng dẫn vẽ và các công thức toán học để mô tả từng glyph, làm cho ký tự có thể mở rộng theo bất kỳ kích thước nào.
-Phông chữ stroke sử dụng một loạt các dòng được chỉ định và thông tin bổ sung để xác định cấu hình, hoặc kích thước và hình dạng của dòng trong một khuôn mặt cụ thể, cùng mô tả sự xuất hiện của glyph.
+- Phông chữ bitmap bao gồm một ma trận các chấm hoặc pixel đại diện cho hình ảnh của mỗi glyph ở mỗi mặt và kích thước.
+
+- Phông chữ vectơ (bao gồm và đôi khi đứng như một từ đồng nghĩa với phông chữ phác thảo) sử dụng các đường cong Bézier, hướng dẫn vẽ và các công thức toán học để mô tả từng glyph, làm cho ký tự có thể mở rộng theo bất kỳ kích thước nào.
+
+- Phông chữ stroke sử dụng một loạt các dòng được chỉ định và thông tin bổ sung để xác định cấu hình, hoặc kích thước và hình dạng của dòng trong một khuôn mặt cụ thể, cùng mô tả sự xuất hiện của glyph.
+
 Phông chữ bitmap nhanh hơn và dễ sử dụng hơn trong mã máy tính, nhưng không thể mở rộng, yêu cầu một phông chữ riêng cho từng kích thước.[1] Phông chữ outline và stroke có thể được thay đổi kích thước bằng một phông chữ duy nhất và thay thế các phép đo khác nhau cho các thành phần của mỗi glyph, nhưng hơi phức tạp hơn để hiển thị trên màn hình so với phông chữ bitmap, vì chúng yêu cầu mã máy tính bổ sung để hiển thị phác thảo thành bitmap để hiển thị trên màn hình hoặc in. Mặc dù tất cả các loại vẫn đang được sử dụng, hầu hết các phông chữ được nhìn thấy và sử dụng trên máy tính là phông chữ outline.
 
 Phông chữ được thiết kế và tạo bằng các trình soạn thảo phông chữ. Phông chữ được thiết kế riêng cho màn hình máy tính và không in được gọi là phông chữ màn hình.

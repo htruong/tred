@@ -1,11 +1,11 @@
 // Screen and buffer management functions for displaying text on the screen
 
+#include <dos.h>
 #include "screen.h"
-
 
 void puttextxy(unsigned char __far * s, unsigned char textattr, unsigned short len, unsigned char row, unsigned char col) {
    union REGPACK r;
-   memset( &r, 0, sizeof( r ) );
+   //memset( &r, 0, sizeof( r ) );
    
    r.x.ax = 0x1301;
    r.h.bh = 0;
@@ -23,17 +23,22 @@ void puttext(unsigned char __far * s, unsigned char textattr, unsigned short len
    union REGPACK r;
    unsigned char row, col;
 
-   //printf("Putting string %s attr %x len %d at col %d row %d\n", s, textattr, len, row, col);
+   getxy(&row, &col);
+   puttextxy(s, textattr, len, row, col);
+}
+
+void getxy(unsigned char * row, unsigned char * col) {
+   union REGPACK r;
 
    r.h.ah = 0x03;
    r.h.bh = 0x00;
 
    intr(0x10, &r);
 
-   row = r.h.dh;
-   col = r.h.dl;
+   *row = r.h.dh;
+   *col = r.h.dl;
 
-   puttextxy(s, textattr, len, row, col);
+   //printf("Current cursor position: row %d col %d\n", *row, *col);
 }
 
 void puttexte(unsigned short __far * s, unsigned short len) {

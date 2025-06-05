@@ -1,4 +1,4 @@
-obj = screen.obj vncvt.obj vgatxt.obj main.obj
+obj = screen.obj vscreen.obj vncvt.obj vgatxt.obj main.obj
 bin = vicat.exe
 
 CC = wcl
@@ -12,5 +12,5 @@ $(bin): $(obj)
     $(CC) -bt=dos -fo=$@ $(CFLAGS) -c $<
 
 clean: .symbolic
-    del *.obj
-    del $(bin)
+    rm *.obj
+    rm $(bin)

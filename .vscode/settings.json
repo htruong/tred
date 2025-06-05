@@ -6,7 +6,14 @@
     },
     "files.associations": {
         "dos.h": "c",
-        "stdio.h": "c"
+        "stdio.h": "c",
+        "cstddef": "c",
+        "cstdio": "c",
+        "cstdlib": "c",
+        "cstring": "c",
+        "vscreen.h": "c",
+        "malloc.h": "c",
+        "screen.h": "c"
     },
     "files.exclude": {
         "**/*.exe": true,

@@ -3,7 +3,7 @@
 #include <graph.h>
 #include <string.h>
 
-#include "screen.h"
+#include "vscreen.h"
 #include "vncvt.h"
 #include "vgatxt.h"
 
@@ -61,6 +61,10 @@ int display_file(char * filename) {
    unsigned int cur_wchar;
    char schar;
 
+   virtual_screen *vs = vscreen_init(80, 23);
+
+   vscreen_set_cursor(vs, 0, 0);
+
    fptr = fopen(filename,"r");
 
    if (fptr == NULL) {
@@ -93,9 +97,12 @@ int display_file(char * filename) {
          }
       }
       buff_cp437e[buff_cp437_cur] = 0;
-      puttexte(buff_cp437e, buff_cp437_cur);
+      //puttexte(buff_cp437e, buff_cp437_cur);
+      vscreen_puts(vs, buff_cp437e, buff_cp437_cur);
+      vscreen_flush(vs);
    }
    fclose(fptr);
+   vscreen_free(vs);
 }
 
 
