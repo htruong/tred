@@ -1,4 +1,4 @@
-obj = main.obj
+obj = main.obj screen.obj
 bin = vicat.exe
 
 CC = wcl
