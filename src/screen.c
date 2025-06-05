@@ -1,7 +1,6 @@
 // Screen and buffer management functions for displaying text on the screen
 
 #include <dos.h>
-#include <string.h>
 #include "screen.h"
 
 #define VIDEO_SEG 0xB800
@@ -11,10 +10,6 @@ void write_char_at(unsigned char row, unsigned char col, char ch, char attr) {
    unsigned short vidAddr = (row * 160) + (col * 2);
    video[vidAddr] = ch;         // character
    video[vidAddr + 1] = attr;   // attribute
-}
-
-void blit_screen_buffer(const char *buf) {
-    memcpy(video, buf, 80 * 25 * 2);
 }
 
 void getxy(unsigned char * row, unsigned char * col) {

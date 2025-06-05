@@ -1,7 +1,5 @@
 #include <dos.h>
 #include <stdio.h>
-#include <graph.h>
-#include <string.h>
 
 #include "vscreen.h"
 #include "vncvt.h"

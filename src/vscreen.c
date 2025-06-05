@@ -1,6 +1,5 @@
 #include <dos.h>
 #include <malloc.h>
-#include <string.h>
 #include "vscreen.h"
 #include "screen.h"
 
