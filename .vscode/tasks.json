@@ -12,11 +12,11 @@
             "options": {
                 "cwd": "${workspaceFolder}/src",
                 "env": {
-                    "PATH": "/home/wasabi/develop/watcom/binl",
-                    "INCLUDE": "/home/wasabi/develop/watcom/h",
-                    "WATCOM": "/home/wasabi/develop/watcom",
-                    "EDPATH": "/home/wasabi/develop/watcom/eddat",
-                    "WIPFC": "/home/wasabi/develop/watcom/wipfc"
+                    "PATH": "~/develop/open-watcom-v2/rel/binl",
+                    "INCLUDE": "~/develop/open-watcom-v2/rel/h",
+                    "WATCOM": "~/develop/open-watcom-v2/rel",
+                    "EDPATH": "~/develop/open-watcom-v2/rel/eddat",
+                    "WIPFC": "~/develop/open-watcom-v2/rel/wipfc"
                 }
             },
             "args": [
