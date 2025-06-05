@@ -6,5 +6,10 @@
     },
     "files.associations": {
         "dos.h": "c"
+    },
+    "files.exclude": {
+        "**/*.exe": true,
+        "**/*.obj": true,
+        "**/*.err": true
     }
 }
