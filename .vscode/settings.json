@@ -5,7 +5,8 @@
         "editor.semanticHighlighting.enabled": true
     },
     "files.associations": {
-        "dos.h": "c"
+        "dos.h": "c",
+        "stdio.h": "c"
     },
     "files.exclude": {
         "**/*.exe": true,
