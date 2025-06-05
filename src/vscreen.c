@@ -76,5 +76,6 @@ unsigned short vscreen_puts(virtual_screen *vs, const unsigned short *str, unsig
 void vscreen_flush(virtual_screen *vs) {
     if (!vs) return;
     // Dump the whole buffer to the screen at (0,0)
-    puttexte(vs->buffer, vs->width * vs->height);
+    //puttexte(vs->buffer, vs->width * vs->height);
+    blitstring(vs->buffer);
 }
