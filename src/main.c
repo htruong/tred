@@ -60,6 +60,7 @@ int display_file(char * filename) {
    enum p_state utf8_parser_state;
    unsigned int cur_wchar;
    char schar;
+   unsigned short chars_put;
 
    virtual_screen *vs = vscreen_init(80, 23);
 
@@ -98,8 +99,15 @@ int display_file(char * filename) {
       }
       buff_cp437e[buff_cp437_cur] = 0;
       //puttexte(buff_cp437e, buff_cp437_cur);
-      vscreen_puts(vs, buff_cp437e, buff_cp437_cur);
+      // Now buff_cp437e has enough chars, let's try to display them until we can't anymore
+      chars_put = vscreen_puts(vs, buff_cp437e, buff_cp437_cur);
       vscreen_flush(vs);
+      if (chars_put < buff_cp437_cur) {
+         getchar();
+         vscreen_clear(vs);
+         vscreen_set_cursor(vs, 0, 0);
+         vscreen_puts(vs, buff_cp437e + chars_put, buff_cp437_cur - chars_put);
+      }
    }
    fclose(fptr);
    vscreen_free(vs);

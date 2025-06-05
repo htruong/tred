@@ -24,4 +24,6 @@ unsigned short vscreen_puts(virtual_screen *vs, const unsigned short *str, unsig
 // Flush the virtual screen buffer to the real screen at (0,0) using puttexte.
 void vscreen_flush(virtual_screen *vs);
 
+void vscreen_clear(virtual_screen *vs);
+
 #endif // VSCREEN_H

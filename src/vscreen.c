@@ -27,6 +27,11 @@ void vscreen_free(virtual_screen *vs) {
     }
 }
 
+void vscreen_clear(virtual_screen *vs) {
+    if (!vs) return;
+    memset(vs->buffer, 0, sizeof(unsigned short) * vs->width * vs->height);
+}
+
 void vscreen_set_cursor(virtual_screen *vs, unsigned char x, unsigned char y) {
     if (!vs) return;
     if (x < vs->width) vs->cur_x = x;
@@ -34,10 +39,11 @@ void vscreen_set_cursor(virtual_screen *vs, unsigned char x, unsigned char y) {
 }
 
 unsigned short vscreen_puts(virtual_screen *vs, const unsigned short *str, unsigned short len) {
-    //if (!vs || !str) return 0;
     unsigned char x = vs->cur_x;
     unsigned char y = vs->cur_y;
     unsigned short i = 0;
+
+    if (!vs || !str) return 0;
     for (i = 0; i < len; ++i) {
         unsigned short ch = str[i];
         if (ch == '\r') {
