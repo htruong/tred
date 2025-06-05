@@ -1,3 +1,6 @@
+// Sets up a custom font for displaying Vietnamese characters in a text mode
+// on x86 VGA using BIOS interrupts.
+
 #include <dos.h>
 #include "vgatxt.h"
 #include "vncvt.h"

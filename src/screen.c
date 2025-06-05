@@ -1,3 +1,5 @@
+// Screen and buffer management functions for displaying text on the screen
+
 #include "screen.h"
 
 void puttext(unsigned char __far * s, unsigned char textattr, unsigned short len) {
@@ -31,7 +33,7 @@ void puttext(unsigned char __far * s, unsigned char textattr, unsigned short len
 }
 
 void puttexte(unsigned short __far * s, unsigned short len) {
-   static char buf[80*25 + 1];
+   static char buf[SCREEN_WIDTH * SCREEN_HEIGHT + 1];
    unsigned short buf_cur;
    unsigned short s_cur;
    enum display_fontslot slot;

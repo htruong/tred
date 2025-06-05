@@ -1,3 +1,6 @@
+// Provides functions to convert Unicode characters to CP437e encoding
+// including handling Vietnamese tones and box drawing characters.
+
 #include "vncvt.h"
 
 #define LOW_CHARS_END 0xff

@@ -12,4 +12,7 @@ enum display_fontslot {
    SLOT_EXTENDED
 };
 
+#define SCREEN_WIDTH 80
+#define SCREEN_HEIGHT 25
+
 #endif // SCREEN_H
