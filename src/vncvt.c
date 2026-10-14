@@ -82,6 +82,9 @@ unsigned short unicode_to_cp437e(unsigned int wc) {
 
    int lo = 0, hi = VN_GLYPHS - 1, mid;
 
+   // Every Vietnamese letter is at U+00C0 or above
+   if (wc < 0xc0) return low_chars[wc];
+
    // Vietnamese letters (even the ones CP437 has, like á) use the second font
    while (lo <= hi) {
       mid = (lo + hi) / 2;

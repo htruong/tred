@@ -1,3 +1,5 @@
 src/*.err
 src/*.obj
 src/*.exe
+src/*.lnk
+src/BUILD.LOG

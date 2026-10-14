@@ -1,127 +1,57 @@
-#include <dos.h>
-#include <stdio.h>
+// vicat: a Vietnamese UTF-8 text editor for DOS in the style of edit.com
+//
+// usage: vicat [-k keyscript] [file]
+//   -k  read keystrokes from a script instead of the keyboard (for testing);
+//       when the script ends the program exits leaving the screen as it is
 
-#include "vscreen.h"
-#include "vncvt.h"
+#include <stdio.h>
+#include <string.h>
+#include "editor.h"
+#include "menu.h"
+#include "surface.h"
+#include "kbd.h"
 #include "vgatxt.h"
 
-enum p_state {
-   P_NORMAL,
-   P_EXPECT_ONE_CONT_B,
-   P_EXPECT_TWO_CONT_B,
-   P_EXPECT_THREE_CONT_B,
-   P_INVALID
-};
-
-void consume(unsigned char c, enum p_state *s, unsigned int * out) {
-   if (*s == P_NORMAL) {
-      if (c < 128) {
-         //printf("=a=");
-         *out = c;
-      } else if ( (c & 0xf8) == 0xf0) {
-         //printf("=3=");
-         *out = (unsigned int) (c & 0x07);
-         *s = P_EXPECT_THREE_CONT_B;
-      } else if ( (c & 0xf0) == 0xe0) {
-         //printf("=2=");
-         *out = (unsigned int) (c & 0x0f);
-         *s = P_EXPECT_TWO_CONT_B;
-      } else if ( (c & 0xe0) == 0xc0) {
-         //printf("=1=");
-         *out = (unsigned int) (c & 0x1f);
-         *s = P_EXPECT_ONE_CONT_B;
-      } else {
-         //printf("=i=");
-         *s = P_INVALID;
-      }
-   } else if ((*s == P_EXPECT_THREE_CONT_B) || (*s == P_EXPECT_TWO_CONT_B) || (*s == P_EXPECT_ONE_CONT_B) ) {
-      if ( (c & 0xc0) == 0x80 ) {
-         //printf("=c=");
-         *out = (*out << 6) + (c & 0x3f);
-         *s = *s - 1;
-      } else {
-         //printf("=e=");
-         *s = P_INVALID;
-      }
-   } else {
-      //printf("=?=");
-      *s = P_INVALID;
-   }
-}
-
-int display_file(char * filename) {
-   FILE *fptr;
-   static char buff[80*25];
-   static short buff_cp437e[80*25*2 + 1];
-   unsigned short buff_cp437_cur;
-   int cur;
-   enum p_state utf8_parser_state;
-   unsigned int cur_wchar;
-   char schar;
-   unsigned short chars_put;
-
-   virtual_screen *vs = vscreen_init(80, 25);
-
-   vscreen_set_cursor(vs, 0, 0);
-
-   fptr = fopen(filename,"r");
-
-   if (fptr == NULL) {
-      printf("Cannot open file for reading.\n");
-      return -1;
-   }
-
-   utf8_parser_state = P_NORMAL;
-   while ( fgets( buff, 80*25, fptr ) != NULL ) {
-      buff_cp437_cur = 0;
-      for (cur = 0; cur < strlen(buff); cur++) {
-         consume(buff[cur], &utf8_parser_state, &cur_wchar);
-         if (utf8_parser_state == P_INVALID) {
-            fclose(fptr);
-            printf("Error occured while parsing the file at char %c (0x%x) position %d.\n", buff[cur], buff[cur], cur);
-            return -1;
-         } else if (utf8_parser_state == P_NORMAL) {
-            if (cur_wchar != '\n') {
-               buff_cp437e[buff_cp437_cur] = unicode_to_cp437e(cur_wchar);
-               buff_cp437_cur++;
-            } else if (cur_wchar == '\r') {
-               // Ignore the \r
-            } else {
-               buff_cp437e[buff_cp437_cur] = '\r';
-               buff_cp437_cur++;
-               buff_cp437e[buff_cp437_cur] = '\n';
-               buff_cp437_cur++;
-            }
-            //putch((char) unicode_to_cp437e(cur_wchar));
-         }
-      }
-      buff_cp437e[buff_cp437_cur] = 0;
-      //puttexte(buff_cp437e, buff_cp437_cur);
-      // Now buff_cp437e has enough chars, let's try to display them until we can't anymore
-      chars_put = vscreen_puts(vs, buff_cp437e, buff_cp437_cur);
-      if (chars_put < buff_cp437_cur) {
-         vscreen_flush(vs);
-         getchar();
-         vscreen_clear(vs);
-         vscreen_set_cursor(vs, 0, 0);
-         chars_put = vscreen_puts(vs, buff_cp437e + chars_put, buff_cp437_cur - chars_put);
-      }
-   }
-   vscreen_flush(vs);
-   getchar();
-   fclose(fptr);
-   vscreen_free(vs);
-}
-
-
 int main(int argc, char **argv) {
-   if (argc != 2) {
-      printf("No file name given.\n");
+   static editor_t ed;
+   const char *file = 0, *script = 0;
+   int i, k = 0, x, y;
+
+   for (i = 1; i < argc; i++) {
+      if (!strcmp(argv[i], "-k") && i + 1 < argc) script = argv[++i];
+      else file = argv[i];
+   }
+   if (!kbd_init(script)) {
+      printf("Cannot open key script %s\n", script);
       return 1;
    }
-   
+
    setup_vietnamese_font(0);
-   display_file(argv[1]);
+   vga_cursor_shape(CURSOR_INSERT, CURSOR_END);
+   scr_init();
+   ed_open(&ed, file);
+   menu_bar_draw(-1);
+
+   while (!ed.quit && k != KEY_SCRIPT_END) {
+      ed_render(&ed);
+      scr_flush();
+      ed_cursor(&ed, &x, &y);
+      vga_cursor(x, y);
+      // Handle everything typed ahead before drawing again
+      do {
+         k = kbd_get();
+         if (k != KEY_SCRIPT_END) ed_key(&ed, k);
+         // A script that ends inside a menu or dialog leaves it on screen
+         if (k != KEY_SCRIPT_END && kbd_script_ended()) return 0;
+      } while (!ed.quit && k != KEY_SCRIPT_END && kbd_avail());
+   }
+   if (k == KEY_SCRIPT_END) {
+      ed_render(&ed);
+      scr_flush();
+      ed_cursor(&ed, &x, &y);
+      vga_cursor(x, y);
+      return 0;
+   }
    restore_text_mode();
    return 0;
 }

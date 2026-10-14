@@ -2,6 +2,7 @@
 // on x86 VGA using BIOS interrupts.
 
 #include <dos.h>
+#include <conio.h>
 #include "vgatxt.h"
 #include "vncvt.h"
 #include "vnfont.h"
@@ -64,6 +65,15 @@ void disable_color_plane_3() {
    intr(0x10, &r);
 }
 
+
+void set_palette(unsigned char index, unsigned char value) {
+   union REGPACK r;
+
+   r.x.ax = 0x1000;
+   r.h.bl = index;
+   r.h.bh = value;
+   intr(0x10, &r);
+}
 
 void set_scan_lines(unsigned char setting) {
    union REGPACK r;
@@ -129,6 +139,36 @@ void setup_vietnamese_font(int win2k_workaround) {
 
    install_fontdef(1, VN_FONT_HEIGHT, 256, 0, font1);
    disable_color_plane_3();
+   // Bit 3 now picks the font, so only colours 0-7 exist. Repaint two unused
+   // ones as the bright white and dark grey edit.com needs.
+   set_palette(COLOR_WHITE, 0x3f);
+   set_palette(COLOR_DARKGRAY, 0x38);
    // 0x04 = use font block 1 when displaying high intensity font
    activate_fontblock(0x04);
+}
+
+// Move the hardware cursor by programming the CRTC directly (no BIOS call)
+void vga_cursor(int x, int y) {
+   static unsigned last = 0xffff;
+   unsigned pos = y * 80 + x;
+
+   if (pos == last) return;
+   last = pos;
+   outp(0x3d4, 0x0e);
+   outp(0x3d5, pos >> 8);
+   outp(0x3d4, 0x0f);
+   outp(0x3d5, pos & 0xff);
+}
+
+// Cursor scan lines start..end; start 0x20 hides it
+void vga_cursor_shape(unsigned char start, unsigned char end) {
+   static unsigned last = 0xffff;
+   union REGPACK r;
+
+   if (last == ((start << 8) | end)) return;
+   last = (start << 8) | end;
+   r.h.ah = 0x01;
+   r.h.ch = start;
+   r.h.cl = end;
+   intr(0x10, &r);
 }
