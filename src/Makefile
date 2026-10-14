@@ -1,4 +1,4 @@
-obj = screen.obj vscreen.obj vncvt.obj vgatxt.obj main.obj
+obj = screen.obj vscreen.obj vnfont.obj vncvt.obj vgatxt.obj main.obj
 bin = vicat.exe
 
 CC = wcl

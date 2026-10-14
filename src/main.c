@@ -122,5 +122,6 @@ int main(int argc, char **argv) {
    
    setup_vietnamese_font(0);
    display_file(argv[1]);
+   restore_text_mode();
    return 0;
 }

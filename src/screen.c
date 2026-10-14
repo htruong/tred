@@ -1,4 +1,4 @@
-// Screen and buffer management functions for displaying text on the screen
+// Screen and buffer management functions for displaying text on a physical 80x25 screen
 
 #include <dos.h>
 #include "screen.h"
@@ -22,8 +22,6 @@ void getxy(unsigned char * row, unsigned char * col) {
 
    *row = r.h.dh;
    *col = r.h.dl;
-
-   //printf("Current cursor position: row %d col %d\n", *row, *col);
 }
 
 void blitstring(unsigned short __far * s) {

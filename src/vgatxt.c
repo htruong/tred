@@ -4,6 +4,7 @@
 #include <dos.h>
 #include "vgatxt.h"
 #include "vncvt.h"
+#include "vnfont.h"
 
 void __far * get_fontdef_ptr(unsigned char font_block) {
    union REGPACK r;
@@ -63,137 +64,71 @@ void disable_color_plane_3() {
    intr(0x10, &r);
 }
 
+
+void set_scan_lines(unsigned char setting) {
+   union REGPACK r;
+
+   r.h.ah = 0x12;
+   r.h.al = setting;
+   r.h.bl = 0x30;
+   intr(0x10, &r);
+
+   r.x.ax = 0x0003;
+   intr(0x10, &r);
+}
+
+void restore_text_mode(void) {
+   set_scan_lines(SCAN_LINES_400);
+}
+
+// Like BKED: 350-line 80x25 text mode with an 8x14 font. Block 0 is the BIOS
+// 8x14 font moved 1 pixel right and 1 down (which leaves 5 rows above the
+// lowercase letters for diacritics) with BKED's redrawn letters on top; block 1
+// is a copy of it plus the Vietnamese letters, shown with the bright attribute.
 void setup_vietnamese_font(int win2k_workaround) {
+   static unsigned char __far font0[256 * VN_FONT_HEIGHT];
+   static unsigned char __far font1[256 * VN_FONT_HEIGHT];
+   unsigned char __far * bios;
+   unsigned char __far * g;
+   union REGPACK r;
+   int c, i;
 
-   unsigned char __far * font_816;
-   static unsigned  char __far font_816_alt[256*16];
+   set_scan_lines(SCAN_LINES_350);
+   bios = get_fontdef_ptr(2);
 
-   //getch();
+   for (c = 0; c < 256; c++) {
+      g = font0 + c * VN_FONT_HEIGHT;
+      if (c < 0x20 || (c >= 0xb0 && c <= 0xdf)) {
+         // Symbols and line drawing must keep touching the cell edges
+         for (i = 0; i < VN_FONT_HEIGHT; i++) g[i] = bios[c * VN_FONT_HEIGHT + i];
+      } else {
+         g[0] = 0;
+         for (i = 1; i < VN_FONT_HEIGHT; i++) g[i] = bios[c * VN_FONT_HEIGHT + i - 1] >> 1;
+      }
+   }
+   for (i = 0; i < BKED_ASCII_GLYPHS; i++) {
+      g = font0 + bked_ascii[i][0] * VN_FONT_HEIGHT;
+      for (c = 0; c < VN_FONT_HEIGHT; c++) g[c] = bked_ascii[i][c + 1];
+   }
 
-   //_setvideomode( _TEXTC80 );
-   //_clearscreen(_GCLEARSCREEN);
+   for (i = 0; i < 256 * VN_FONT_HEIGHT; i++) font1[i] = font0[i];
+   for (i = 0; i < VN_GLYPHS; i++) {
+      g = font1 + VN_SLOT(i) * VN_FONT_HEIGHT;
+      for (c = 0; c < VN_FONT_HEIGHT; c++) g[c] = vn_font[i][c];
+   }
 
-   font_816 = get_fontdef_ptr(6);
+   // AX=1110h also reprograms the CRTC for 14-line characters (25 rows)
+   r.x.ax = 0x1110;
+   r.h.bh = VN_FONT_HEIGHT;
+   r.h.bl = 0;
+   r.x.cx = 256;
+   r.x.dx = 0;
+   r.w.es = FP_SEG(font0);
+   r.w.bp = FP_OFF(font0);
+   intr(0x10, &r);
 
-   #define UNICODE_TO_EXT_FONTMAP_OFFSET(x) ((x - LATIN_EXT_VIETNAMESE_BEGIN) | 0x80)
-   #define EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(x) (x + 0x80 + 0x60)
-
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ea0)* 16, font_816 + 'A'*16, T_UCASE_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ea1)* 16, font_816 + 'a'*16, T_UCASE_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ea2)* 16, font_816 + 'A'*16, T_UCASE_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ea3)* 16, font_816 + 'a'*16, T_UCASE_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ea4)* 16, font_816 + 'A'*16, T_UCASE_CIRCUMFLEX_ACUTE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ea5)* 16, font_816 + 'a'*16, T_UCASE_CIRCUMFLEX_ACUTE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ea6)* 16, font_816 + 'A'*16, T_UCASE_CIRCUMFLEX_GRAVE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ea7)* 16, font_816 + 'a'*16, T_UCASE_CIRCUMFLEX_GRAVE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ea8)* 16, font_816 + 'A'*16, T_UCASE_CIRCUMFLEX_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ea9)* 16, font_816 + 'a'*16, T_UCASE_CIRCUMFLEX_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eaa)* 16, font_816 + 'A'*16, T_UCASE_CIRCUMFLEX_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eab)* 16, font_816 + 'a'*16, T_UCASE_CIRCUMFLEX_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eac)* 16, font_816 + 'A'*16, T_UCASE_CIRCUMFLEX_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ead)* 16, font_816 + 'a'*16, T_UCASE_CIRCUMFLEX_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eae)* 16, font_816 + 'A'*16, T_UCASE_BREVE_ACUTE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eaf)* 16, font_816 + 'a'*16, T_UCASE_BREVE_ACUTE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eb0)* 16, font_816 + 'A'*16, T_UCASE_BREVE_GRAVE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eb1)* 16, font_816 + 'a'*16, T_UCASE_BREVE_GRAVE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eb2)* 16, font_816 + 'A'*16, T_UCASE_BREVE_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eb3)* 16, font_816 + 'a'*16, T_UCASE_BREVE_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eb4)* 16, font_816 + 'A'*16, T_UCASE_BREVE_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eb5)* 16, font_816 + 'a'*16, T_UCASE_BREVE_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eb6)* 16, font_816 + 'A'*16, T_UCASE_BREVE_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eb7)* 16, font_816 + 'a'*16, T_UCASE_BREVE_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eb8)* 16, font_816 + 'E'*16, T_UCASE_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eb9)* 16, font_816 + 'e'*16, T_UCASE_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eba)* 16, font_816 + 'E'*16, T_UCASE_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ebb)* 16, font_816 + 'e'*16, T_UCASE_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ebc)* 16, font_816 + 'E'*16, T_UCASE_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ebd)* 16, font_816 + 'e'*16, T_UCASE_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ebe)* 16, font_816 + 'E'*16, T_UCASE_CIRCUMFLEX_ACUTE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ebf)* 16, font_816 + 'e'*16, T_UCASE_CIRCUMFLEX_ACUTE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ec0)* 16, font_816 + 'E'*16, T_UCASE_CIRCUMFLEX_GRAVE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ec1)* 16, font_816 + 'e'*16, T_UCASE_CIRCUMFLEX_GRAVE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ec2)* 16, font_816 + 'E'*16, T_UCASE_CIRCUMFLEX_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ec3)* 16, font_816 + 'e'*16, T_UCASE_CIRCUMFLEX_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ec4)* 16, font_816 + 'E'*16, T_UCASE_CIRCUMFLEX_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ec5)* 16, font_816 + 'e'*16, T_UCASE_CIRCUMFLEX_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ec6)* 16, font_816 + 'E'*16, T_UCASE_CIRCUMFLEX_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ec7)* 16, font_816 + 'e'*16, T_UCASE_CIRCUMFLEX_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ec8)* 16, font_816 + 'I'*16, T_UCASE_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ec9)* 16, font_816 + 'i'*16, T_UCASE_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eca)* 16, font_816 + 'I'*16, T_UCASE_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ecb)* 16, font_816 + 'i'*16, T_UCASE_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ecc)* 16, font_816 + 'O'*16, T_UCASE_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ecd)* 16, font_816 + 'o'*16, T_UCASE_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ece)* 16, font_816 + 'O'*16, T_UCASE_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ecf)* 16, font_816 + 'o'*16, T_UCASE_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ed0)* 16, font_816 + 'O'*16, T_UCASE_CIRCUMFLEX_ACUTE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ed1)* 16, font_816 + 'o'*16, T_UCASE_CIRCUMFLEX_ACUTE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ed2)* 16, font_816 + 'O'*16, T_UCASE_CIRCUMFLEX_GRAVE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ed3)* 16, font_816 + 'o'*16, T_UCASE_CIRCUMFLEX_GRAVE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ed4)* 16, font_816 + 'O'*16, T_UCASE_CIRCUMFLEX_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ed5)* 16, font_816 + 'o'*16, T_UCASE_CIRCUMFLEX_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ed6)* 16, font_816 + 'O'*16, T_UCASE_CIRCUMFLEX_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ed7)* 16, font_816 + 'o'*16, T_UCASE_CIRCUMFLEX_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ed8)* 16, font_816 + 'O'*16, T_UCASE_CIRCUMFLEX_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ed9)* 16, font_816 + 'o'*16, T_UCASE_CIRCUMFLEX_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eda)* 16, font_816 + 'O'*16, T_UCASE_ATTACHED_HOOK_ACUTE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1edb)* 16, font_816 + 'o'*16, T_UCASE_ATTACHED_HOOK_ACUTE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1edc)* 16, font_816 + 'O'*16, T_UCASE_ATTACHED_HOOK_GRAVE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1edd)* 16, font_816 + 'o'*16, T_UCASE_ATTACHED_HOOK_GRAVE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ede)* 16, font_816 + 'O'*16, T_UCASE_ATTACHED_HOOK_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1edf)* 16, font_816 + 'o'*16, T_UCASE_ATTACHED_HOOK_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ee0)* 16, font_816 + 'O'*16, T_UCASE_ATTACHED_HOOK_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ee1)* 16, font_816 + 'o'*16, T_UCASE_ATTACHED_HOOK_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ee2)* 16, font_816 + 'O'*16, T_UCASE_ATTACHED_HOOK_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ee3)* 16, font_816 + 'o'*16, T_UCASE_ATTACHED_HOOK_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ee4)* 16, font_816 + 'U'*16, T_UCASE_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ee5)* 16, font_816 + 'u'*16, T_UCASE_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ee6)* 16, font_816 + 'U'*16, T_UCASE_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ee7)* 16, font_816 + 'u'*16, T_UCASE_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ee8)* 16, font_816 + 'U'*16, T_UCASE_ATTACHED_HOOK_ACUTE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ee9)* 16, font_816 + 'u'*16, T_UCASE_ATTACHED_HOOK_ACUTE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eea)* 16, font_816 + 'U'*16, T_UCASE_ATTACHED_HOOK_GRAVE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eeb)* 16, font_816 + 'u'*16, T_UCASE_ATTACHED_HOOK_GRAVE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eec)* 16, font_816 + 'U'*16, T_UCASE_ATTACHED_HOOK_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eed)* 16, font_816 + 'u'*16, T_UCASE_ATTACHED_HOOK_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eee)* 16, font_816 + 'U'*16, T_UCASE_ATTACHED_HOOK_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1eef)* 16, font_816 + 'u'*16, T_UCASE_ATTACHED_HOOK_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ef0)* 16, font_816 + 'U'*16, T_UCASE_ATTACHED_HOOK_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ef1)* 16, font_816 + 'u'*16, T_UCASE_ATTACHED_HOOK_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ef2)* 16, font_816 + 'Y'*16, T_UCASE_GRAVE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ef3)* 16, font_816 + 'y'*16, T_UCASE_GRAVE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ef4)* 16, font_816 + 'Y'*16, T_UCASE_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ef5)* 16, font_816 + 'y'*16, T_UCASE_DOT_BELOW);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ef6)* 16, font_816 + 'Y'*16, T_UCASE_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ef7)* 16, font_816 + 'y'*16, T_UCASE_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ef8)* 16, font_816 + 'Y'*16, T_UCASE_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + UNICODE_TO_EXT_FONTMAP_OFFSET(0x1ef9)* 16, font_816 + 'y'*16, T_UCASE_TILDE);
-   
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(0)* 16, font_816 + 'A'*16, T_UCASE_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(1)* 16, font_816 + 'a'*16, T_UCASE_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(2)* 16, font_816 + 'O'*16, T_UCASE_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(3)* 16, font_816 + 'o'*16, T_UCASE_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(4)* 16, font_816 + 'A'*16, T_UCASE_BREVE);
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(5)* 16, font_816 + 'a'*16, T_UCASE_BREVE);
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(6)* 16, font_816 + 'D'*16, T_UCASE_D_STROKE);
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(7)* 16, font_816 + 'd'*16, T_LCASE_D_STROKE);
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(8)* 16, font_816 + 'I'*16, T_UCASE_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(9)* 16, font_816 + 'i'*16, T_UCASE_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(10)* 16, font_816 + 'U'*16, T_UCASE_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(11)* 16, font_816 + 'u'*16, T_UCASE_TILDE);
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(12)* 16, font_816 + 'O'*16, T_UCASE_ATTACHED_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(13)* 16, font_816 + 'o'*16, T_LCASE_ATTACHED_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(14)* 16, font_816 + 'U'*16, T_UCASE_ATTACHED_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(15)* 16, font_816 + 'u'*16, T_LCASE_ATTACHED_HOOK);
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(16)* 16, font_816 + 'E'*16, T_UCASE_CIRCUMFLEX);
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(17)* 16, font_816 + 'Y'*16, T_UCASE_ACUTE);
-   apply_tone_to_char_bitmap(font_816_alt + EXTRA_VIETNAMESE_TO_EXT_FONTMAP_OFFSET(18)* 16, font_816 + 'y'*16, T_UCASE_ACUTE);
-
-
-   //install_fontdef(0, 16, 256, 0, font_816);
-   install_fontdef(1, 16, 256, 0, font_816_alt);
+   install_fontdef(1, VN_FONT_HEIGHT, 256, 0, font1);
    disable_color_plane_3();
    // 0x04 = use font block 1 when displaying high intensity font
    activate_fontblock(0x04);
-
 }
