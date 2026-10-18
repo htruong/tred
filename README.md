@@ -20,16 +20,24 @@ A Vietnamese UTF-8 text editor for MS-DOS (formerly vicat, a Vietnamese file vie
 | --- | --- |
 | F9 | Switch input method: Telex, VNI, off |
 | F10, Alt+F/E/S/O/H | Menus |
+| Ctrl+O | Open |
 | Ctrl+S | Save |
+| Alt+F3 | Close the file |
 | Alt+X | Exit |
 | Ctrl+Y | Delete line |
 | Ins | Insert / overwrite |
 
+The mouse works too: click to place the cursor, use the menus, scrollbars, dialog buttons and the `[■]` close box, and scroll with the wheel if the mouse driver supports it.
+
 Telex: `aa` â, `aw` ă, `ee` ê, `oo` ô, `ow` ơ, `uw` ư, `dd` đ, then `s f r x j` for the tones and `z` to remove one; typing a key twice undoes it (`ass` gives `as`). VNI uses `1`-`5` for tones, `6` ^, `7` horn, `8` breve, `9` đ, `0` to remove the tone.
+
+## How it works
+
+VGA text mode has room for only 256 characters, and CP437 fills them. tred loads a second font and repurposes the "bright" attribute bit to pick between the two, giving 512 glyphs on screen at once. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the details and what each module does.
 
 ## Building and testing
 
-Build with Open Watcom's `wmake` in `src/`. Inside DOSBox the DOS-hosted tools in `binw` work.
+Build with Open Watcom's `wmake` in `src/`. Inside DOSBox the DOS-hosted tools in `binw` work; `tools/dosbuild.sh` does a clean build in DOSBox-X, and `tools/dosrun.sh` runs tred with a key script and dumps the screen for `tools/vgarender.py`.
 
 `tred -k keys.txt file` replays keystrokes from `keys.txt` (characters plus tokens like `{Enter}`, `{Down}`, `{C-S}`, `{F9}`), then exits and leaves the screen as it is, for automated checks.
 
