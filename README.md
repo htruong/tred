@@ -1,6 +1,6 @@
 ## tred - TRuong's EDitor
 
-A Vietnamese UTF-8 text editor for MS-DOS (formerly vicat, a Vietnamese file viewer).
+A Vietnamese UTF-8 text viewer and editor for MS-DOS, with a trick to draw boxes and dingbats. The idea and prototype was written in 2021 or so when there was no AI, the actual editor is written by Claude.
 
 ![tred](docs/screenshot.png)
 
