@@ -1,5 +1,5 @@
 #!/bin/sh
-# Clean build of vicat inside DOSBox-X with the DOS-hosted Open Watcom tools.
+# Clean build of tred inside DOSBox-X with the DOS-hosted Open Watcom tools.
 # usage: tools/dosbuild.sh   (WATCOM defaults to ~/develop/open-watcom-v2/rel)
 # Always rebuilds everything: DOS timestamps are too coarse to trust.
 cd "$(dirname "$0")/../src" || exit 1
@@ -13,5 +13,5 @@ rm -f BUILD.LOG ./*.OBJ ./*.obj ./*.EXE ./*.exe ./*.ERR ./*.err
   -c "wmake -h > BUILD.LOG" >/dev/null 2>&1
 grep -E "Warning!|Error!|errors" BUILD.LOG | grep -v " 0 warnings, 0 errors"
 cat ./*.ERR 2>/dev/null
-[ -f vicat.exe ] || [ -f VICAT.EXE ] || { echo "build failed"; exit 1; }
-echo "built src/vicat.exe"
+[ -f tred.exe ] || [ -f TRED.EXE ] || { echo "build failed"; exit 1; }
+echo "built src/tred.exe"

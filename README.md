@@ -1,6 +1,8 @@
-## vicat - Vietnamese UTF-8 text editor for MS-DOS
+## tred - TRuong's EDitor
 
-![Vicat](https://github.com/htruong/vicat/blob/master/docs/screenshot.png?raw=true)
+A Vietnamese UTF-8 text editor for MS-DOS (formerly vicat, a Vietnamese file viewer).
+
+![tred](https://github.com/htruong/vicat/blob/master/docs/screenshot.png?raw=true)
 
 ## Features
 
@@ -12,7 +14,7 @@
 
 ## Usage
 
-    vicat [file]
+    tred [file]
 
 | Key | Action |
 | --- | --- |
@@ -29,7 +31,7 @@ Telex: `aa` â, `aw` ă, `ee` ê, `oo` ô, `ow` ơ, `uw` ư, `dd` đ, then `s f 
 
 Build with Open Watcom's `wmake` in `src/`. Inside DOSBox the DOS-hosted tools in `binw` work.
 
-`vicat -k keys.txt file` replays keystrokes from `keys.txt` (characters plus tokens like `{Enter}`, `{Down}`, `{C-S}`, `{F9}`), then exits and leaves the screen as it is, for automated checks.
+`tred -k keys.txt file` replays keystrokes from `keys.txt` (characters plus tokens like `{Enter}`, `{Down}`, `{C-S}`, `{F9}`), then exits and leaves the screen as it is, for automated checks.
 
 The input method and text buffer have host tests:
 

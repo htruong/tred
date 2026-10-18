@@ -313,7 +313,7 @@ static void render_chrome(editor_t *ed) {
    if (ed->msg[0]) {
       v_utf8(&stat, 1, 0, ed->msg, A_STATUS);
    } else {
-      v_text(&stat, 1, 0, "vicat  <F10=Menu>  <F9=Input method>", A_STATUS);
+      v_text(&stat, 1, 0, "tred   <F10=Menu>  <F9=Input method>", A_STATUS);
       v_text(&stat, 8, 0, "<F10=Menu>", (A_STATUS & 0xf0) | COLOR_WHITE);
       v_text(&stat, 20, 0, "<F9=Input method>", (A_STATUS & 0xf0) | COLOR_WHITE);
    }
@@ -695,7 +695,7 @@ int ed_menu_checked(editor_t *ed, int cmd) {
 
 void ed_command(editor_t *ed, int cmd) {
    static const char * const about[] = {
-      "vicat - Vietnamese text editor for DOS", "",
+      "tred - TRuong's EDitor", "", "A Vietnamese text editor for DOS",
       "Telex / VNI input like Unikey, UTF-8 files", "Font after BKED, look after edit.com", 0
    };
    static const char * const ok[] = {"OK"};

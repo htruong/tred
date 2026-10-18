@@ -1,6 +1,7 @@
-// vicat: a Vietnamese UTF-8 text editor for DOS in the style of edit.com
+// tred (TRuong's EDitor): a Vietnamese UTF-8 text editor for DOS in the style
+// of edit.com
 //
-// usage: vicat [-k keyscript] [file]
+// usage: tred [-k keyscript] [file]
 //   -k  read keystrokes from a script instead of the keyboard (for testing);
 //       when the script ends the program exits leaving the screen as it is
 
