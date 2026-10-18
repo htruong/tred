@@ -25,6 +25,8 @@ void scr_fill(int x, int y, int w, int h, unsigned short code, unsigned char att
 cell_t scr_get(int x, int y);
 // Recolour a rectangle keeping its glyphs (menu and dialog shadows)
 void scr_shade(int x, int y, int w, int h, unsigned char attr);
+// Move a rectangle's rows by dy (-1 up, 1 down); the row it vacates is left as it was
+void scr_scroll(int x, int y, int w, int h, int dy);
 void scr_flush(void);
 void scr_invalidate(void);
 cell_t *scr_save(int x, int y, int w, int h);

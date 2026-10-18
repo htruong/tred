@@ -78,6 +78,13 @@ Video memory on old PCs is slow, so tred avoids touching it:
 - Everything else (frame, scrollbars, status bar) is redrawn into `back` every
   time. That costs a comparison per cell, and only cells that changed reach
   video memory.
+- Scrolling by one row (cursor keys at the edge of the window, a wheel
+  notch) shifts the row table and the screen buffer and lays out only the
+  row that came into view.
+- After an edit, rows above the edited line are kept, and laying out stops
+  once the rows below line up with the old ones again.
+- The cursor's row, its column for Up/Down and the status bar column come
+  from the row table or are cached, instead of rescanning long lines.
 - The main loop handles all keys typed ahead before drawing, so key repeat
   never queues redraws.
 
@@ -93,4 +100,5 @@ Typing a letter writes about 3 cells to video memory, and moving the cursor
 | `tools/dosbuild.sh` | Clean build of `src/tred.exe` inside DOSBox-X with the DOS-hosted Open Watcom tools. |
 | `tools/dosrun.sh` | Runs tred in DOSBox-X with a key script, then dumps the screen with `vgadump`. |
 | `tools/vgadump.c` | DOS program that saves text memory, the fonts in VGA plane 2 and a few registers. |
+| `tools/dosbench.sh` | Times a few key scripts at a fixed DOSBox-X speed (300 cycles is roughly a 4.77 MHz XT). |
 | `tools/vgarender.py` | Renders such a dump to a PNG, or prints it as text, to check what tred really drew. |

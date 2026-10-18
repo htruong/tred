@@ -33,6 +33,7 @@
 #define KEY_A_O    0x118
 #define KEY_A_H    0x123
 #define KEY_A_X    0x12d
+#define KEY_C_L    0x0c
 #define KEY_C_O    0x0f
 #define KEY_C_S    0x13
 #define KEY_C_Y    0x19

@@ -2,6 +2,7 @@
 
 #include <dos.h>
 #include <stdlib.h>
+#include <string.h>
 #include "surface.h"
 #include "mouse.h"
 
@@ -80,6 +81,25 @@ void scr_shade(int x, int y, int w, int h, unsigned char attr) {
          if (i < 0 || j < 0 || i >= SCR_W || j >= SCR_H) continue;
          c = back[j * SCR_W + i];
          set(i, j, MKCELL(CELL_CODE(c), attr));
+      }
+   }
+}
+
+void scr_scroll(int x, int y, int w, int h, int dy) {
+   int r;
+
+   if (dy < 0) {
+      for (r = y; r < y + h - 1; r++) memcpy(&back[r * SCR_W + x], &back[(r + 1) * SCR_W + x], w * sizeof(cell_t));
+   } else {
+      for (r = y + h - 1; r > y; r--) memcpy(&back[r * SCR_W + x], &back[(r - 1) * SCR_W + x], w * sizeof(cell_t));
+   }
+   for (r = y; r < y + h; r++) {
+      if (dlo[r] > dhi[r]) {
+         dlo[r] = (unsigned char) x;
+         dhi[r] = (unsigned char) (x + w - 1);
+      } else {
+         if (x < dlo[r]) dlo[r] = (unsigned char) x;
+         if (x + w - 1 > dhi[r]) dhi[r] = (unsigned char) (x + w - 1);
       }
    }
 }

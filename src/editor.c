@@ -36,10 +36,18 @@ static unsigned next_col(unsigned col, unsigned cp) {
 // Display column of byte off, counting from byte start of the line
 static unsigned col_in(const line_t *ln, unsigned start, unsigned off) {
    unsigned p = start, col = 0, cp;
+   unsigned char c;
 
-   while (p < off && p < ln->len) {
-      p += utf8_dec(ln->p + p, ln->p + ln->len, &cp);
-      col = next_col(col, cp);
+   if (off > ln->len) off = ln->len;
+   while (p < off) {
+      c = (unsigned char) ln->p[p];
+      if (c >= 0x80) {
+         p += utf8_dec(ln->p + p, ln->p + ln->len, &cp);
+         col++;
+      } else {
+         p++;
+         col = c == '\t' ? (col / TAB_W + 1) * TAB_W : col + 1;
+      }
    }
    return col;
 }
@@ -68,7 +76,8 @@ static unsigned seg_end(const editor_t *ed, const line_t *ln, unsigned start) {
 
    if (!ed->wrap) return ln->len;
    while (p < ln->len) {
-      n = utf8_dec(ln->p + p, ln->p + ln->len, &cp);
+      cp = (unsigned char) ln->p[p];
+      n = cp < 0x80 ? 1 : utf8_dec(ln->p + p, ln->p + ln->len, &cp);
       if (cp == ' ') {
          brk = p + n; // spaces may hang past the edge
       } else if (next_col(col, cp) > WRAP_W) {
@@ -127,6 +136,7 @@ static int row_down(editor_t *ed, unsigned *l, unsigned *s) {
 }
 
 static void mark_line(editor_t *ed, unsigned l) {
+   ed->scy = NO_LINE; // the status column may have changed
    if (l < ed->dlo) ed->dlo = l;
    if (l > ed->dhi) ed->dhi = l;
    ed->relayout = 1;
@@ -134,15 +144,16 @@ static void mark_line(editor_t *ed, unsigned l) {
 
 // Lines from l on moved (a line was split, joined or deleted)
 static void mark_from(editor_t *ed, unsigned l) {
+   ed->scy = NO_LINE;
    if (l < ed->dlo) ed->dlo = l;
    ed->dhi = NO_LINE - 1;
    ed->relayout = 1;
 }
 
+// The cursor moved sideways: Up/Down should now keep its new column. Worked
+// out lazily, since typing moves the cursor on every key.
 static void set_want(editor_t *ed) {
-   line_t *ln = cur_line(ed);
-
-   ed->want = col_in(ln, seg_start_of(ed, ln, ed->cx, 0), ed->cx);
+   ed->want_stale = 1;
 }
 
 static void report(editor_t *ed, int err) {
@@ -161,6 +172,7 @@ int ed_open(editor_t *ed, const char *path) {
    ed->ins = 1;
    ed->wrap = 1;
    ed->dlo = NO_LINE;
+   ed->scy = NO_LINE;
    ed->redraw = 1;
    if (path) {
       strncpy(ed->tb.name, path, sizeof(ed->tb.name) - 1);
@@ -190,6 +202,14 @@ static void render_row(editor_t *ed, int r) {
       p = ed->tb.ln[vr->line].p + vr->start;
       e = ed->tb.ln[vr->line].p + vr->end;
       while (p < e && col < end) {
+         cp = (unsigned char) *p;
+         if (cp >= 0x20 && cp < 0x7f) {
+            // Printable ASCII is the same glyph in CP437
+            p++;
+            if (col >= ed->left) row[col - ed->left] = (cell_t) ((A_TEXT << 8) | cp);
+            col++;
+            continue;
+         }
          p += utf8_dec(p, e, &cp);
          if (cp != '\t' && col >= ed->left) {
             code = cp == UTF8_BAD ? 0xfe : unicode_to_cp437e(cp);
@@ -201,53 +221,129 @@ static void render_row(editor_t *ed, int r) {
    scr_put_cells(TEXT_X, TEXT_Y + r, row, TEXT_W);
 }
 
+// The screen row that follows vr in the text (line NO_LINE past the end)
+static void row_after(editor_t *ed, const vrow_t *vr, vrow_t *nr) {
+   line_t *ln;
+
+   nr->start = nr->end = 0;
+   if (vr->line == NO_LINE) {
+      nr->line = NO_LINE;
+      return;
+   }
+   ln = &ed->tb.ln[vr->line];
+   if (vr->end < ln->len) {
+      nr->line = vr->line;
+      nr->start = vr->end;
+   } else if (vr->line + 1 < ed->tb.n) {
+      nr->line = vr->line + 1;
+   } else {
+      nr->line = NO_LINE;
+      return;
+   }
+   nr->end = seg_end(ed, &ed->tb.ln[nr->line], nr->start);
+}
+
+// The view moved by exactly one row and nothing was edited: shift the rows
+// on screen and lay out only the one that came into view
+static int layout_shift(editor_t *ed) {
+   vrow_t *rows = ed->rows;
+   unsigned l = ed->top, s = ed->topoff;
+
+   if (rows[1].line == ed->top && rows[1].start == ed->topoff) {
+      memmove(rows, rows + 1, (TEXT_H - 1) * sizeof(vrow_t));
+      scr_scroll(TEXT_X, TEXT_Y, TEXT_W, TEXT_H, -1);
+      row_after(ed, &rows[TEXT_H - 2], &rows[TEXT_H - 1]);
+      render_row(ed, TEXT_H - 1);
+      return 1;
+   }
+   if (row_down(ed, &l, &s) && l == rows[0].line && s == rows[0].start) {
+      memmove(rows + 1, rows, (TEXT_H - 1) * sizeof(vrow_t));
+      scr_scroll(TEXT_X, TEXT_Y, TEXT_W, TEXT_H, 1);
+      rows[0].line = ed->top;
+      rows[0].start = ed->topoff;
+      rows[0].end = seg_end(ed, &ed->tb.ln[ed->top], ed->topoff);
+      render_row(ed, 0);
+      return 1;
+   }
+   return 0;
+}
+
 // Lay the text out from the top row and redraw the rows whose content changed
 static void layout(editor_t *ed) {
-   unsigned l, s, r;
-   vrow_t nr;
-   line_t *ln;
+   vrow_t nr, *rows = ed->rows;
+   int r = 0, edited = ed->dlo != NO_LINE, same_top;
 
    if (ed->top >= ed->tb.n) {
       ed->top = ed->tb.n - 1;
       ed->topoff = 0;
    }
-   ed->topoff = seg_start_of(ed, &ed->tb.ln[ed->top], ed->topoff, 0);
-   l = ed->top;
-   s = ed->topoff;
-   for (r = 0; r < TEXT_H; r++) {
-      nr.line = l;
-      nr.start = nr.end = 0;
-      if (l != NO_LINE) {
-         ln = &ed->tb.ln[l];
-         nr.start = s;
-         nr.end = seg_end(ed, ln, s);
-         if (nr.end < ln->len) s = nr.end;
-         else if (l + 1 < ed->tb.n) { l++; s = 0; }
-         else l = NO_LINE;
+   // Editing the top line can move where its rows start
+   if (ed->redraw || (ed->top >= ed->dlo && ed->top <= ed->dhi)) {
+      ed->topoff = seg_start_of(ed, &ed->tb.ln[ed->top], ed->topoff, 0);
+   }
+   same_top = !ed->redraw && ed->top == ed->ltop && ed->topoff == ed->ltopoff;
+
+   if (ed->redraw || edited || same_top || !layout_shift(ed)) {
+      if (same_top && edited) {
+         // Rows above the first edited line are unchanged
+         while (r < TEXT_H && rows[r].line != NO_LINE && rows[r].line < ed->dlo) r++;
       }
-      if (ed->redraw || nr.line != ed->rows[r].line || nr.start != ed->rows[r].start || nr.end != ed->rows[r].end ||
-          (nr.line != NO_LINE && nr.line >= ed->dlo && nr.line <= ed->dhi)) {
-         ed->rows[r] = nr;
-         render_row(ed, r);
+      for (; r < TEXT_H; r++) {
+         if (r == 0) {
+            nr.line = ed->top;
+            nr.start = ed->topoff;
+            nr.end = seg_end(ed, &ed->tb.ln[ed->top], ed->topoff);
+         } else {
+            row_after(ed, &rows[r - 1], &nr);
+         }
+         if (ed->redraw || nr.line != rows[r].line || nr.start != rows[r].start || nr.end != rows[r].end ||
+             (nr.line != NO_LINE && nr.line >= ed->dlo && nr.line <= ed->dhi)) {
+            rows[r] = nr;
+            render_row(ed, r);
+         } else if (edited && ed->dhi != NO_LINE - 1 && nr.line > ed->dhi) {
+            break; // past the edit and lined up again: the rest is as it was
+         }
       }
    }
+   ed->ltop = ed->top;
+   ed->ltopoff = ed->topoff;
    ed->dlo = NO_LINE;
    ed->dhi = 0;
    ed->relayout = ed->redraw = 0;
 }
 
+// The text row holding the cursor, or -1; rows[] must be current
 static int cursor_row(editor_t *ed) {
-   unsigned cs = seg_start_of(ed, cur_line(ed), ed->cx, 0);
+   const vrow_t *vr;
+   unsigned len = cur_line(ed)->len;
    int r;
 
    for (r = 0; r < TEXT_H; r++) {
-      if (ed->rows[r].line == ed->cy && ed->rows[r].start == cs) return r;
+      vr = &ed->rows[r];
+      if (vr->line == ed->cy && ed->cx >= vr->start && (ed->cx < vr->end || vr->end >= len)) return r;
    }
    return -1;
 }
 
+// Start of the cursor's screen row, from the row table when it is current
+static unsigned cursor_start(editor_t *ed) {
+   int r;
+
+   if (!ed->relayout && !ed->redraw && (r = cursor_row(ed)) >= 0) return ed->rows[r].start;
+   return seg_start_of(ed, cur_line(ed), ed->cx, 0);
+}
+
+static unsigned want_col(editor_t *ed) {
+   if (ed->want_stale) {
+      ed->want = col_in(cur_line(ed), cursor_start(ed), ed->cx);
+      ed->want_stale = 0;
+   }
+   return ed->want;
+}
+
 static void scroll_to_cursor(editor_t *ed) {
-   unsigned cs = seg_start_of(ed, cur_line(ed), ed->cx, 0), l = ed->cy, s = cs, col;
+   unsigned l, s, col;
+   vrow_t nr;
    int i;
 
    if (!ed->wrap) {
@@ -262,9 +358,19 @@ static void scroll_to_cursor(editor_t *ed) {
       }
    }
    if (cursor_row(ed) >= 0) return;
-   if (ed->cy > ed->top || (ed->cy == ed->top && cs > ed->topoff)) {
-      // Below the window: make the cursor row the bottom row
-      for (i = 1; i < TEXT_H && row_up(ed, &l, &s); i++);
+   l = ed->cy;
+   s = seg_start_of(ed, cur_line(ed), ed->cx, 0);
+   if (l > ed->top || (l == ed->top && s > ed->topoff)) {
+      row_after(ed, &ed->rows[TEXT_H - 1], &nr);
+      if (nr.line == l && nr.start == s) {
+         // Just below the window: scroll one row
+         l = ed->top;
+         s = ed->topoff;
+         row_down(ed, &l, &s);
+      } else {
+         // Further down: make the cursor row the bottom row
+         for (i = 1; i < TEXT_H && row_up(ed, &l, &s); i++);
+      }
    }
    ed->top = l;
    ed->topoff = s;
@@ -320,7 +426,12 @@ static void render_chrome(editor_t *ed) {
    v_put(&stat, 62, 0, 0xb3, A_STATUS);
    v_text(&stat, 64, 0, ime_name(ed->ime.mode), A_STATUS);
    if (!ed->ins) v_text(&stat, 59, 0, "OVR", A_STATUS);
-   sprintf(pos, "%05u:%03u", ed->cy + 1, col_in(cur_line(ed), 0, ed->cx) + 1);
+   if (ed->scy != ed->cy || ed->scx != ed->cx) {
+      ed->scol = col_in(cur_line(ed), 0, ed->cx);
+      ed->scy = ed->cy;
+      ed->scx = ed->cx;
+   }
+   sprintf(pos, "%05u:%03u", ed->cy + 1, ed->scol + 1);
    v_text(&stat, 70, 0, pos, A_STATUS);
 }
 
@@ -328,6 +439,7 @@ void ed_render(editor_t *ed) {
    if (ed->relayout || ed->redraw) layout(ed);
    scroll_to_cursor(ed);
    if (ed->relayout || ed->redraw) layout(ed);
+   want_col(ed); // cheap now that the row table is current
    render_chrome(ed);
 }
 
@@ -335,7 +447,7 @@ void ed_cursor(editor_t *ed, int *x, int *y) {
    line_t *ln = cur_line(ed);
    int r = cursor_row(ed), c;
 
-   c = (int) col_in(ln, seg_start_of(ed, ln, ed->cx, 0), ed->cx) - (int) ed->left;
+   c = (int) col_in(ln, r >= 0 ? ed->rows[r].start : seg_start_of(ed, ln, ed->cx, 0), ed->cx) - (int) ed->left;
    *x = TEXT_X + (c < TEXT_W ? c : TEXT_W - 1);
    *y = TEXT_Y + (r < 0 ? 0 : r);
 }
@@ -493,15 +605,15 @@ static void word_left_move(editor_t *ed) {
 
 // Move the cursor d screen rows, keeping its column
 static void move_vert(editor_t *ed, int d) {
-   line_t *ln = cur_line(ed);
-   unsigned l = ed->cy, st = seg_start_of(ed, ln, ed->cx, 0), e;
+   line_t *ln;
+   unsigned l = ed->cy, st = cursor_start(ed), e, want = want_col(ed);
 
    for (; d < 0 && row_up(ed, &l, &st); d++);
    for (; d > 0 && row_down(ed, &l, &st); d--);
    ed->cy = l;
    ln = cur_line(ed);
    e = seg_end(ed, ln, st);
-   ed->cx = off_at(ln, st, e, ed->want);
+   ed->cx = off_at(ln, st, e, want);
 }
 
 static void page(editor_t *ed, int dir) {
@@ -597,7 +709,8 @@ static void go_to_line(editor_t *ed) {
 }
 
 static void reset_view(editor_t *ed) {
-   ed->cy = ed->cx = ed->want = 0;
+   ed->cy = ed->cx = ed->want = ed->want_stale = 0;
+   ed->scy = NO_LINE;
    ed->top = ed->topoff = ed->left = 0;
    ed->redraw = 1;
 }
@@ -626,7 +739,7 @@ static void scroll_view(editor_t *ed, int d) {
    for (r = TEXT_H - 1; r > 0 && ed->rows[r].line == NO_LINE; r--);
    vr = (ed->cy < l || (ed->cy == l && ed->cx < s)) ? &ed->rows[0] : &ed->rows[r];
    ed->cy = vr->line;
-   ed->cx = off_at(cur_line(ed), vr->start, vr->end, ed->want);
+   ed->cx = off_at(cur_line(ed), vr->start, vr->end, want_col(ed));
 }
 
 static void click_text(editor_t *ed, int x, int y) {
@@ -780,6 +893,11 @@ void ed_key(editor_t *ed, int key) {
       set_want(ed);
       break;
    case KEY_C_Y: ed_command(ed, CMD_DELLINE); break;
+   case KEY_C_L: // redraw everything, e.g. after a TSR wrote on the screen
+      ed->redraw = 1;
+      scr_invalidate();
+      menu_bar_draw(-1);
+      break;
    case KEY_C_O: ed_command(ed, CMD_OPEN); break;
    case KEY_A_F3: ed_command(ed, CMD_CLOSE); break;
    case KEY_MOUSE: ed_mouse(ed); break;

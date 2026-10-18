@@ -6,7 +6,7 @@ A Vietnamese UTF-8 text viewer and editor for MS-DOS, with a trick to draw boxes
 
 ## Features
 
-- Edits Vietnamese UTF-8 text files on MS-DOS with a VGA card, in an edit.com-style interface.
+- Edits Vietnamese UTF-8 text files on MS-DOS with a VGA card, in an edit.com-style interface. Runs on an 8086 and up.
 - Types Vietnamese with Telex or VNI like Unikey; F9 switches between Telex, VNI and off (also in the Options menu).
 - Uses a BKED-style 8x14 font in 350-line text mode: Vietnamese letters live in the second VGA font, so CP437 line drawing and your normal font are left alone, and the normal text mode comes back on exit.
 - Wraps long lines at word boundaries by default (Options > Word Wrap turns it off); wrapping is only on screen, the file keeps its lines.
@@ -26,6 +26,7 @@ A Vietnamese UTF-8 text viewer and editor for MS-DOS, with a trick to draw boxes
 | Alt+X | Exit |
 | Ctrl+Y | Delete line |
 | Ins | Insert / overwrite |
+| Ctrl+L | Redraw the screen |
 
 The mouse works too: click to place the cursor, use the menus, scrollbars, dialog buttons and the `[■]` close box, and scroll with the wheel if the mouse driver supports it.
 

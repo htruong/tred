@@ -19,7 +19,7 @@ static const struct { const char *name; int key; } names[] = {
    {"C-Left", KEY_C_LEFT}, {"C-Right", KEY_C_RIGHT}, {"C-Home", KEY_C_HOME}, {"C-End", KEY_C_END},
    {"F1", KEY_F1}, {"F9", KEY_F9}, {"F10", KEY_F10}, {"A-F", KEY_A_F}, {"A-E", KEY_A_E},
    {"A-S", KEY_A_S}, {"A-O", KEY_A_O}, {"A-H", KEY_A_H}, {"A-X", KEY_A_X},
-   {"C-O", KEY_C_O}, {"A-F3", KEY_A_F3}, {"C-S", KEY_C_S}, {"C-Y", KEY_C_Y}, {"C-Q", KEY_C_Q}, {"{", '{'}, {0, 0}
+   {"C-L", KEY_C_L}, {"C-O", KEY_C_O}, {"A-F3", KEY_A_F3}, {"C-S", KEY_C_S}, {"C-Y", KEY_C_Y}, {"C-Q", KEY_C_Q}, {"{", '{'}, {0, 0}
 };
 
 int kbd_init(const char *path) {

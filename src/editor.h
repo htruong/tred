@@ -37,6 +37,9 @@ typedef struct {
    unsigned top, topoff; // first row shown: line and byte offset of its segment
    unsigned left;        // first column shown (no-wrap mode only)
    vrow_t rows[TEXT_H];  // current layout of the text view
+   unsigned ltop, ltopoff; // top row that rows[] was laid out from
+   unsigned char want_stale; // want needs recomputing from the cursor
+   unsigned scy, scx, scol; // cursor position the status bar column was computed for
    unsigned dlo, dhi;    // lines edited since the last render
    unsigned char relayout, redraw;
    unsigned char wrap;   // word wrap long lines

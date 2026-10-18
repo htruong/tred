@@ -2,7 +2,7 @@ obj = vgatxt.obj vnfont.obj vncvt.obj utf8.obj surface.obj draw.obj mouse.obj kb
 bin = tred.exe
 
 CC = wcl
-CFLAGS = -3 -fpi87 -fp3 -os -d0 -mh
+CFLAGS = -0 -ml -otexan -s -d0
 
 .ERASE
 

@@ -2,6 +2,7 @@
 # Runs src/tred.exe in DOSBox-X with a key script and dumps the screen.
 # usage: tools/dosrun.sh RUNDIR "keys" [file]   e.g. tools/dosrun.sh /tmp/run '{Down}abc' TEST.TXT
 # RUNDIR gets KEYS.TXT and the dump; then use tools/vgarender.py RUNDIR out.png|--text
+# DOSBOX_SET adds -set options (e.g. "cpu cycles=300"); TIMING.TXT gets ticks and writes.
 T=$(cd "$(dirname "$0")" && pwd)
 RUN=$1
 WAT=${WATCOM:-$HOME/develop/open-watcom-v2/rel}
@@ -15,6 +16,7 @@ if [ ! -f "$RUN/VGADUMP.EXE" ]; then
     -c "set WATCOM=D:\\" -c "set INCLUDE=D:\\H" -c "set PATH=D:\\BINW;Z:\\" -c "wcl -bt=dos -ml vgadump.c > NUL" >/dev/null 2>&1
 fi
 printf '%s' "$2" > "$RUN/KEYS.TXT"
-printf '@echo off\r\ntred -k KEYS.TXT %s\r\nvgadump\r\n' "$3" > "$RUN/GO.BAT"
-"$DOSBOX" -silent -nogui -nomenu -fastlaunch -exit -set "cpu cycles=max" -c "mount c $RUN" -c "c:" -c "GO.BAT" >/dev/null 2>&1
+printf '@echo off\r\ntred -k KEYS.TXT -t TIMING.TXT %s\r\nvgadump\r\n' "$3" > "$RUN/GO.BAT"
+rm -f "$RUN/TIMING.TXT"
+"$DOSBOX" -silent -nogui -nomenu -fastlaunch -exit -set "${DOSBOX_SET:-cpu cycles=max}" -c "mount c $RUN" -c "c:" -c "GO.BAT" >/dev/null 2>&1
 [ -f "$RUN/TEXT.BIN" ] || { echo "no dump (tred hung or crashed?)"; exit 1; }
