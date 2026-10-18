@@ -2,7 +2,7 @@
 
 A Vietnamese UTF-8 text editor for MS-DOS (formerly vicat, a Vietnamese file viewer).
 
-![tred](https://github.com/htruong/vicat/blob/master/docs/screenshot.png?raw=true)
+![tred](docs/screenshot.png)
 
 ## Features
 
