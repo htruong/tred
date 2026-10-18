@@ -1,10 +1,23 @@
 {
     "[c]": {
-        "editor.wordBasedSuggestions": false,
+        "editor.wordBasedSuggestions": "off",
         "editor.suggest.insertMode": "replace",
         "editor.semanticHighlighting.enabled": true
     },
     "files.associations": {
-        "dos.h": "c"
+        "dos.h": "c",
+        "stdio.h": "c",
+        "cstddef": "c",
+        "cstdio": "c",
+        "cstdlib": "c",
+        "cstring": "c",
+        "vscreen.h": "c",
+        "malloc.h": "c",
+        "screen.h": "c"
+    },
+    "files.exclude": {
+        "**/*.exe": true,
+        "**/*.obj": true,
+        "**/*.err": true
     }
 }
