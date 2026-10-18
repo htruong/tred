@@ -160,15 +160,12 @@ void vga_cursor(int x, int y) {
    outp(0x3d5, pos & 0xff);
 }
 
-// Cursor scan lines start..end; start 0x20 hides it
+// Cursor scan lines start..end; start 0x20 hides it. Written straight to
+// the CRTC: the BIOS call rescales the lines, and a mouse driver reset can
+// change them behind our back, so callers re-apply after that.
 void vga_cursor_shape(unsigned char start, unsigned char end) {
-   static unsigned last = 0xffff;
-   union REGPACK r;
-
-   if (last == ((start << 8) | end)) return;
-   last = (start << 8) | end;
-   r.h.ah = 0x01;
-   r.h.ch = start;
-   r.h.cl = end;
-   intr(0x10, &r);
+   outp(0x3d4, 0x0a);
+   outp(0x3d5, start);
+   outp(0x3d4, 0x0b);
+   outp(0x3d5, end);
 }

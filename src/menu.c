@@ -33,7 +33,7 @@ typedef struct {
 } menu_t;
 
 static const mitem_t file_items[] = {
-   {"&Open...", "Ctrl+O", CMD_OPEN}, {"&Save", "Ctrl+S", CMD_SAVE}, {"Save &As...", "", CMD_SAVEAS}, {"-", 0, 0},
+   {"&Open...", "Ctrl+O", CMD_OPEN}, {"&Close", "Alt+F3", CMD_CLOSE}, {"&Save", "Ctrl+S", CMD_SAVE}, {"Save &As...", "", CMD_SAVEAS}, {"-", 0, 0},
    {"E&xit", "Alt+X", CMD_EXIT}, {0, 0, 0}
 };
 static const mitem_t edit_items[] = {{"&Delete Line", "Ctrl+Y", CMD_DELLINE}, {0, 0, 0}};
@@ -102,6 +102,15 @@ void menu_bar_draw(int open) {
          draw_label(menus[i].x, 0, menus[i].title, A_BAR, open >= 0 ? A_HOT : A_BAR);
       }
    }
+}
+
+int menu_hit(int x) {
+   int i;
+
+   for (i = 0; i < NMENUS; i++) {
+      if (x >= menus[i].x - 1 && x <= menus[i].x + label_len(menus[i].title)) return i;
+   }
+   return -1;
 }
 
 static void shadow(int x, int y, int w, int h) {
@@ -197,6 +206,30 @@ int menu_run(editor_t *ed, int m) {
       case KEY_DOWN: sel = next_item(it, sel, 1); break;
       case KEY_ENTER: cmd = it[sel].cmd; break;
       case KEY_ESC: case KEY_F10: case KEY_SCRIPT_END: cmd = CMD_NONE; break;
+      case KEY_MOUSE:
+         if (mouse_ev.wheel) break;
+         if (mouse_ev.y == 0) {
+            // On the bar: switch menus; a press elsewhere on it closes
+            i = menu_hit(mouse_ev.x);
+            if (i >= 0 && i != m) {
+               scr_restore(x, 1, w + 2, h + 1, saved);
+               saved = 0;
+               m = i;
+               sel = 0;
+            } else if (i < 0 && mouse_ev.pressed) {
+               cmd = CMD_NONE;
+            }
+         } else if (mouse_ev.x > x && mouse_ev.x < x + w - 1 && mouse_ev.y > 1 && mouse_ev.y < h) {
+            // Items highlight under the pointer and are chosen on release
+            i = mouse_ev.y - 2;
+            if (it[i].label[0] != '-') {
+               sel = i;
+               if (mouse_ev.released) cmd = it[i].cmd;
+            }
+         } else if (mouse_ev.pressed) {
+            cmd = CMD_NONE;
+         }
+         break;
       default:
          for (i = 0; it[i].label; i++) {
             if (k < 0x80 && hotkey_of(it[i].label) == (k | 0x20)) cmd = it[i].cmd;
@@ -255,6 +288,21 @@ static void draw_buttons(const view_t *v, const char * const *buttons, int n, in
    }
 }
 
+// Which button of draw_buttons is at screen cell (mx, my), or -1
+static int button_at(const view_t *v, const char * const *buttons, int n, int mx, int my) {
+   int i, total = 0, x, len;
+
+   if (my != v->y + v->h - 2) return -1;
+   for (i = 0; i < n; i++) total += (int) strlen(buttons[i]) + 4 + (i ? 3 : 0);
+   x = v->x + (v->w - total) / 2;
+   for (i = 0; i < n; i++) {
+      len = (int) strlen(buttons[i]);
+      if (mx >= x && mx <= x + len + 3) return i;
+      x += len + 7;
+   }
+   return -1;
+}
+
 int msgbox(const char *title, const char * const *lines, const char * const *buttons, int nbtn, int def) {
    view_t v;
    cell_t *saved;
@@ -271,7 +319,8 @@ int msgbox(const char *title, const char * const *lines, const char * const *but
       draw_buttons(&v, buttons, nbtn, sel);
       scr_flush();
       k = kbd_get();
-      if (k == KEY_TAB || k == KEY_RIGHT) sel = (sel + 1) % nbtn;
+      if (k == KEY_MOUSE && mouse_ev.pressed && (i = button_at(&v, buttons, nbtn, mouse_ev.x, mouse_ev.y)) >= 0) done = i;
+      else if (k == KEY_TAB || k == KEY_RIGHT) sel = (sel + 1) % nbtn;
       else if (k == KEY_LEFT) sel = (sel + nbtn - 1) % nbtn;
       else if (k == KEY_ENTER) done = sel;
       else if (k == KEY_ESC || k == KEY_SCRIPT_END) done = -1;
@@ -287,7 +336,7 @@ int inputbox(const char *title, const char *prompt, char *buf, int max) {
    static const char * const buttons[] = {"OK", "Cancel"};
    view_t v;
    cell_t *saved;
-   int w = 60, h = 7, len = (int) strlen(buf), k, done = -1, fx = 3 + (int) strlen(prompt);
+   int w = 60, h = 7, len = (int) strlen(buf), k, b, done = -1, fx = 3 + (int) strlen(prompt);
 
    dialog(title, w, h, &v, &saved);
    v_text(&v, 2, 2, prompt, A_DIALOG);
@@ -299,7 +348,8 @@ int inputbox(const char *title, const char *prompt, char *buf, int max) {
       scr_flush();
       vga_cursor(v.x + fx + len, v.y + 2);
       k = kbd_get();
-      if (k == KEY_ENTER) done = 1;
+      if (k == KEY_MOUSE && mouse_ev.pressed && (b = button_at(&v, buttons, 2, mouse_ev.x, mouse_ev.y)) >= 0) done = b == 0;
+      else if (k == KEY_ENTER) done = 1;
       else if (k == KEY_ESC || k == KEY_SCRIPT_END) done = 0;
       else if (k == KEY_BS && len > 0) buf[--len] = 0;
       else if (k >= 0x20 && k < 0x7f && len < max && fx + len < w - 3) {
@@ -358,6 +408,7 @@ int open_dialog(char *name, int max) {
    cell_t *saved;
    int w = 56, h = 20, focus = 0, sel = 0, first = 0, done = -1, k, i, len, fx = 13;
    int fresh = 1; // the field holds preset text that typing replaces
+   int b;
 
    strcpy(pattern, "*.*");
    strcpy(field, pattern);
@@ -402,6 +453,34 @@ int open_dialog(char *name, int max) {
       }
 
       k = kbd_get();
+      if (k == KEY_MOUSE) {
+         // Clicks become the key that does the same thing
+         i = mouse_ev.y - list.y - 1;
+         if (mouse_ev.wheel && n_entries > 0) {
+            focus = 1;
+            k = mouse_ev.wheel > 0 ? KEY_DOWN : KEY_UP;
+         } else if (!mouse_ev.pressed) {
+            continue;
+         } else if ((b = button_at(&v, buttons, 2, mouse_ev.x, mouse_ev.y)) >= 0) {
+            focus = 2 + b;
+            k = KEY_ENTER;
+         } else if (mouse_ev.y == v.y + 1 && mouse_ev.x >= v.x + fx) {
+            focus = 0;
+            continue;
+         } else if (i >= 0 && i < LIST_ROWS && first + i < n_entries && mouse_ev.x > list.x && mouse_ev.x < list.x + list.w - 1) {
+            if (focus == 1 && first + i == sel) {
+               k = KEY_ENTER; // a second click on the highlighted entry opens it
+            } else {
+               focus = 1;
+               sel = first + i;
+               strcpy(field, sel >= n_dirs ? entries[sel] : pattern);
+               fresh = 1;
+               continue;
+            }
+         } else {
+            continue;
+         }
+      }
       if (focus == 0 && fresh && (k == KEY_BS || (k > 0x20 && k < 0x7f))) {
          field[0] = 0;
          len = 0;

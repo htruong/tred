@@ -3,6 +3,7 @@
 #include <dos.h>
 #include <stdlib.h>
 #include "surface.h"
+#include "mouse.h"
 
 static cell_t back[SCR_W * SCR_H];
 static cell_t front[SCR_W * SCR_H];
@@ -84,13 +85,18 @@ void scr_shade(int x, int y, int w, int h, unsigned char attr) {
 }
 
 void scr_flush(void) {
-   int y, x, i;
+   int y, x, i, hidden = 0;
 
    for (y = 0; y < SCR_H; y++) {
       if (dlo[y] > dhi[y]) continue;
       for (x = dlo[y]; x <= dhi[y]; x++) {
          i = y * SCR_W + x;
          if (back[i] != front[i]) {
+            // The driver keeps its own copy of the cell under the pointer
+            if (!hidden) {
+               mouse_hide();
+               hidden = 1;
+            }
             vid[i] = front[i] = back[i];
             scr_writes++;
          }
@@ -98,6 +104,7 @@ void scr_flush(void) {
       dlo[y] = 1;
       dhi[y] = 0; // empty span
    }
+   if (hidden) mouse_show();
 }
 
 cell_t *scr_save(int x, int y, int w, int h) {

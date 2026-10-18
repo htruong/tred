@@ -7,6 +7,9 @@
 
 static FILE *script;
 static int pending = -1;
+static mouse_ev_t queue[4];
+static int nqueue;
+mouse_ev_t mouse_ev;
 static int ended;
 
 static const struct { const char *name; int key; } names[] = {
@@ -16,7 +19,7 @@ static const struct { const char *name; int key; } names[] = {
    {"C-Left", KEY_C_LEFT}, {"C-Right", KEY_C_RIGHT}, {"C-Home", KEY_C_HOME}, {"C-End", KEY_C_END},
    {"F1", KEY_F1}, {"F9", KEY_F9}, {"F10", KEY_F10}, {"A-F", KEY_A_F}, {"A-E", KEY_A_E},
    {"A-S", KEY_A_S}, {"A-O", KEY_A_O}, {"A-H", KEY_A_H}, {"A-X", KEY_A_X},
-   {"C-O", KEY_C_O}, {"C-S", KEY_C_S}, {"C-Y", KEY_C_Y}, {"C-Q", KEY_C_Q}, {"{", '{'}, {0, 0}
+   {"C-O", KEY_C_O}, {"A-F3", KEY_A_F3}, {"C-S", KEY_C_S}, {"C-Y", KEY_C_Y}, {"C-Q", KEY_C_Q}, {"{", '{'}, {0, 0}
 };
 
 int kbd_init(const char *path) {
@@ -51,6 +54,20 @@ static int script_key(void) {
    for (i = 0; names[i].name; i++) {
       if (!strcmp(names[i].name, name)) return names[i].key;
    }
+   memset(queue, 0, 2 * sizeof(queue[0]));
+   if (sscanf(name, "Click:%d,%d", &queue[0].x, &queue[0].y) == 2) {
+      queue[0].buttons = queue[0].pressed = 1;
+      queue[1] = queue[0];
+      queue[1].buttons = queue[1].pressed = 0;
+      queue[1].released = 1;
+      nqueue = 2;
+      return KEY_MOUSE;
+   }
+   if (sscanf(name, "Wheel:%d", &i) == 1) {
+      queue[0].wheel = (signed char) i;
+      nqueue = 1;
+      return KEY_MOUSE;
+   }
    return '?';
 }
 
@@ -63,26 +80,47 @@ static int bios_key(void) {
    return r.h.al;
 }
 
+// Take the next queued mouse event as mouse_ev
+static int take_mouse(void) {
+   mouse_ev = queue[0];
+   memmove(queue, queue + 1, --nqueue * sizeof(queue[0]));
+   return KEY_MOUSE;
+}
+
 int kbd_get(void) {
    int k;
 
+   if (nqueue && pending < 0) return take_mouse();
    if (pending >= 0) {
       k = pending;
       pending = -1;
+      if (k == KEY_MOUSE) return take_mouse();
       return k;
    }
-   return script ? script_key() : bios_key();
+   if (script) {
+      k = script_key();
+      return k == KEY_MOUSE ? take_mouse() : k;
+   }
+   for (;;) {
+      if (kbd_avail()) return kbd_get();
+   }
 }
 
 int kbd_avail(void) {
    union REGPACK r;
 
    if (script) {
+      if (nqueue) return 1;
       if (pending < 0) pending = script_key();
       return pending != KEY_SCRIPT_END;
    }
-   if (pending >= 0) return 1;
+   if (pending >= 0 || nqueue) return 1;
    r.h.ah = 0x11;
    intr(0x16, &r);
-   return !(r.w.flags & INTR_ZF);
+   if (!(r.w.flags & INTR_ZF)) {
+      pending = bios_key();
+      return 1;
+   }
+   nqueue = mouse_poll(queue);
+   return nqueue > 0;
 }

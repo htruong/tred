@@ -1,4 +1,4 @@
-obj = vgatxt.obj vnfont.obj vncvt.obj utf8.obj surface.obj draw.obj kbd.obj textbuf.obj ime.obj editor.obj menu.obj main.obj
+obj = vgatxt.obj vnfont.obj vncvt.obj utf8.obj surface.obj draw.obj mouse.obj kbd.obj textbuf.obj ime.obj editor.obj menu.obj main.obj
 bin = vicat.exe
 
 CC = wcl

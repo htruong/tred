@@ -11,6 +11,7 @@
 #include "surface.h"
 #include "kbd.h"
 #include "vgatxt.h"
+#include "mouse.h"
 
 int main(int argc, char **argv) {
    static editor_t ed;
@@ -27,8 +28,9 @@ int main(int argc, char **argv) {
    }
 
    setup_vietnamese_font(0);
-   vga_cursor_shape(CURSOR_INSERT, CURSOR_END);
    scr_init();
+   mouse_init();
+   vga_cursor_shape(CURSOR_INSERT, CURSOR_END);
    ed_open(&ed, file);
    menu_bar_draw(-1);
 
@@ -37,6 +39,8 @@ int main(int argc, char **argv) {
       scr_flush();
       ed_cursor(&ed, &x, &y);
       vga_cursor(x, y);
+      // Menus and dialogs hide or change the caret; always put it back
+      vga_cursor_shape(ed.ins ? CURSOR_INSERT : CURSOR_OVERWRITE, CURSOR_END);
       // Handle everything typed ahead before drawing again
       do {
          k = kbd_get();
@@ -52,6 +56,7 @@ int main(int argc, char **argv) {
       vga_cursor(x, y);
       return 0;
    }
+   mouse_done();
    restore_text_mode();
    return 0;
 }

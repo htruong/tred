@@ -1,6 +1,8 @@
 #ifndef KBD_H
 #define KBD_H
 
+#include "mouse.h"
+
 // Keys are the ASCII code, or 0x100 | scan code for keys without one
 #define KEY_ENTER  0x0d
 #define KEY_BS     0x08
@@ -37,11 +39,16 @@
 #define KEY_C_Q    0x11
 // Returned once a key script has run out
 #define KEY_SCRIPT_END 0x7fff
+// A mouse event; details in mouse_ev
+#define KEY_MOUSE  0x7ffe
+#define KEY_A_F3   0x16a
 
 // script: NULL reads the BIOS keyboard, else keys are read from that file:
 // literal characters and {Name} tokens such as {Enter} {Up} {C-S} {F9} {{};
 // raw newlines in the file are ignored.
+// Scripts can also click with {Click:x,y} and scroll with {Wheel:n}.
 int kbd_init(const char *script);
+extern mouse_ev_t mouse_ev;
 int kbd_get(void);
 int kbd_avail(void);
 int kbd_scripted(void);

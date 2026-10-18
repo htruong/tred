@@ -282,6 +282,9 @@ static void render_chrome(editor_t *ed) {
    v_put(&win, 0, 0, 0xda, A_FRAME);
    v_fill(&win, 1, 0, 78, 1, 0xc4, A_FRAME);
    v_put(&win, 79, 0, 0xbf, A_FRAME);
+   // Close box for the file, as in Turbo Pascal windows
+   v_text(&win, 2, 0, "[ ]", A_FRAME);
+   v_put(&win, 3, 0, 0xfe, (A_FRAME & 0xf0) | COLOR_WHITE);
    if ((slash = strrchr(name, '\\')) != 0) name = slash + 1;
    sprintf(title, " %.30s ", name);
    for (i = 0; title[i]; i++) title[i] = (char) toupper((unsigned char) title[i]);
@@ -546,6 +549,8 @@ static int confirm_discard(editor_t *ed) {
    return 1;
 }
 
+static void reset_view(editor_t *ed);
+
 static void quit(editor_t *ed) {
    if (confirm_discard(ed)) ed->quit = 1;
 }
@@ -575,9 +580,7 @@ static void open_file(editor_t *ed) {
    tb_free(&ed->tb);
    ed->tb = tb;
    strncpy(ed->tb.name, name, sizeof(ed->tb.name) - 1);
-   ed->cy = ed->cx = ed->want = 0;
-   ed->top = ed->topoff = ed->left = 0;
-   ed->redraw = 1;
+   reset_view(ed);
 }
 
 static void go_to_line(editor_t *ed) {
@@ -591,6 +594,91 @@ static void go_to_line(editor_t *ed) {
    ed->cy = (unsigned) (l > (long) ed->tb.n ? ed->tb.n - 1 : l - 1);
    ed->cx = 0;
    set_want(ed);
+}
+
+static void reset_view(editor_t *ed) {
+   ed->cy = ed->cx = ed->want = 0;
+   ed->top = ed->topoff = ed->left = 0;
+   ed->redraw = 1;
+}
+
+// Close the file, leaving an empty Untitled one
+static void close_file(editor_t *ed) {
+   if (!confirm_discard(ed)) return;
+   tb_free(&ed->tb);
+   tb_init(&ed->tb);
+   reset_view(ed);
+}
+
+// Scroll the view by d rows, taking the cursor along when it would go off screen
+static void scroll_view(editor_t *ed, int d) {
+   unsigned l = ed->top, s = ed->topoff;
+   const vrow_t *vr;
+   int r;
+
+   for (; d < 0 && row_up(ed, &l, &s); d++);
+   for (; d > 0 && row_down(ed, &l, &s); d--);
+   ed->top = l;
+   ed->topoff = s;
+   layout(ed);
+   if (cursor_row(ed) >= 0) return;
+   // The cursor scrolled off: put it on the first or last row shown
+   for (r = TEXT_H - 1; r > 0 && ed->rows[r].line == NO_LINE; r--);
+   vr = (ed->cy < l || (ed->cy == l && ed->cx < s)) ? &ed->rows[0] : &ed->rows[r];
+   ed->cy = vr->line;
+   ed->cx = off_at(cur_line(ed), vr->start, vr->end, ed->want);
+}
+
+static void click_text(editor_t *ed, int x, int y) {
+   const vrow_t *vr = &ed->rows[y - TEXT_Y];
+
+   if (vr->line == NO_LINE) {
+      ed->cy = ed->tb.n - 1;
+      ed->cx = cur_line(ed)->len;
+   } else {
+      ed->cy = vr->line;
+      ed->cx = off_at(cur_line(ed), vr->start, vr->end, x - TEXT_X + ed->left);
+   }
+   set_want(ed);
+}
+
+static void ed_mouse(editor_t *ed) {
+   const mouse_ev_t *m = &mouse_ev;
+   int x = m->x, y = m->y, thumb, menu, col;
+   line_t *ln;
+
+   if (m->wheel) {
+      scroll_view(ed, m->wheel * 3);
+      return;
+   }
+   // Placing the cursor follows drags; everything else acts on the press
+   if ((m->pressed || (m->buttons & 1)) && x >= TEXT_X && x < TEXT_X + TEXT_W && y >= TEXT_Y && y < TEXT_Y + TEXT_H) {
+      click_text(ed, x, y);
+      return;
+   }
+   if (!m->pressed) return;
+   if (y == 0) {
+      if ((menu = menu_hit(x)) >= 0) ed_command(ed, menu_run(ed, menu));
+   } else if (y == 1 && x >= 2 && x <= 4) {
+      ed_command(ed, CMD_CLOSE);
+   } else if (x == 79 && y >= TEXT_Y && y < TEXT_Y + TEXT_H) {
+      thumb = TEXT_Y + 1 + (ed->tb.n > 1 ? (int) ((long) ed->cy * (TEXT_H - 3) / (ed->tb.n - 1)) : 0);
+      if (y == TEXT_Y) scroll_view(ed, -1);
+      else if (y == TEXT_Y + TEXT_H - 1) scroll_view(ed, 1);
+      else if (y < thumb) page(ed, -1);
+      else if (y > thumb) page(ed, 1);
+   } else if (y == TEXT_Y + TEXT_H && x >= 1 && x <= 78 && !ed->wrap) {
+      // Horizontal scrollbar: arrows move a column, the track a screenful
+      ln = cur_line(ed);
+      col = (int) col_in(ln, 0, ed->cx) + (x == 1 ? -1 : x == 78 ? 1 : x < 40 ? -(TEXT_W - 20) : TEXT_W - 20);
+      if (col < 0) col = 0;
+      ed->cx = off_at(ln, 0, ln->len, (unsigned) col);
+      set_want(ed);
+   } else if (y == 24) {
+      if (x >= 8 && x <= 17) ed_command(ed, menu_run(ed, 0));
+      else if ((x >= 20 && x <= 36) || (x >= 64 && x <= 69)) ed->ime.mode = (unsigned char) ((ed->ime.mode + 1) % IME_MODES);
+      else if (x >= 59 && x <= 61) ed->ins = !ed->ins;
+   }
 }
 
 int ed_menu_checked(editor_t *ed, int cmd) {
@@ -616,6 +704,7 @@ void ed_command(editor_t *ed, int cmd) {
    ed_render(ed);
    switch (cmd) {
    case CMD_OPEN: open_file(ed); break;
+   case CMD_CLOSE: close_file(ed); break;
    case CMD_SAVE: save(ed, 0); break;
    case CMD_SAVEAS: save(ed, 1); break;
    case CMD_EXIT: quit(ed); break;
@@ -692,6 +781,8 @@ void ed_key(editor_t *ed, int key) {
       break;
    case KEY_C_Y: ed_command(ed, CMD_DELLINE); break;
    case KEY_C_O: ed_command(ed, CMD_OPEN); break;
+   case KEY_A_F3: ed_command(ed, CMD_CLOSE); break;
+   case KEY_MOUSE: ed_mouse(ed); break;
    case KEY_C_S: ed_command(ed, CMD_SAVE); break;
    case KEY_A_X: ed_command(ed, CMD_EXIT); break;
    case KEY_F9:

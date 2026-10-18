@@ -5,6 +5,8 @@
 
 // open: index of the menu whose title is highlighted, or -1
 void menu_bar_draw(int open);
+// Index of the menu whose title is at column x of the bar, or -1
+int menu_hit(int x);
 // Run the menus starting with menu `which`; returns the chosen CMD_* or CMD_NONE
 int menu_run(editor_t *ed, int which);
 // Modal message box; returns the button index or -1 for Esc
